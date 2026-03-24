@@ -1,0 +1,38 @@
+name: Auto Forward Bot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Har 5 minute mein chalega
+  workflow_dispatch: # Hath se chalane ka button bhi milega
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Requests Library
+        run: pip install requests
+
+      - name: Run Python Script
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          WHAPI_TOKEN: ${{ secrets.WHAPI_TOKEN }}
+          WHAPI_GROUP_ID: ${{ secrets.WHAPI_GROUP_ID }}
+        run: python bot.py
+
+      - name: Save Record (Prevent Repeat)
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add last_update_id.txt
+          git commit -m "Update message ID" || echo "No new messages"
+          git push
