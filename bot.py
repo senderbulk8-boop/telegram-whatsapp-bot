@@ -4,15 +4,17 @@ import requests
 # GitHub Secrets se Tokens uthana
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 WHAPI_TOKEN = os.environ.get("WHAPI_TOKEN")
-# Yahan humne comma se IDs ko alag karke ek List bana li hai
 WHAPI_GROUP_IDS = os.environ.get("WHAPI_GROUP_ID", "").split(",")
 
-# Pichla padha hua message ID nikalna
+# --- YAHAN HUMNE ERROR THEEK KIYA HAI ---
 try:
     with open("last_update_id.txt", "r") as f:
-        last_update_id = int(f.read().strip())
+        content = f.read().strip()
+        # Agar file khali hai, toh crash mat ho, use 0 maan lo
+        last_update_id = int(content) if content else 0
 except FileNotFoundError:
     last_update_id = 0
+# ----------------------------------------
 
 # Telegram se naye messages lana
 telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={last_update_id + 1}"
@@ -35,7 +37,7 @@ if response.get("ok"):
 
         # HAR GROUP KE LIYE LOOP CHALANA
         for group_id in WHAPI_GROUP_IDS:
-            group_id = group_id.strip() # Faltu space hatane ke liye
+            group_id = group_id.strip()
             if not group_id:
                 continue
 
@@ -85,6 +87,6 @@ if response.get("ok"):
                     }
                     requests.post("https://gate.whapi.cloud/messages/document", headers=whapi_headers, json=payload)
 
-    # Naye update ID ko save karna
+    # Naye update ID ko save karna (taaki next time khali na rahe)
     with open("last_update_id.txt", "w") as f:
         f.write(str(last_update_id))
