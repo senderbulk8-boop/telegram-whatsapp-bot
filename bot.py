@@ -3,8 +3,10 @@ import requests
 
 # GitHub Secrets se Tokens uthana
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-WHAPI_TOKEN = os.environ.get("WHAPI_TOKEN")
-WHAPI_GROUP_IDS = os.environ.get("WHAPI_GROUP_ID", "").split(",")
+# Yahan URL ke aage se '/' hatane ke liye rstrip ka use kiya hai
+WAHA_API_URL = os.environ.get("WAHA_API_URL", "https://waha-8vbc.onrender.com").rstrip("/")
+WAHA_API_KEY = os.environ.get("WAHA_API_KEY")
+WAHA_CHAT_IDS = os.environ.get("WAHA_CHAT_ID", "").split(",")
 
 # --- YAHAN HUMNE ERROR THEEK KIYA HAI ---
 try:
@@ -20,8 +22,9 @@ except FileNotFoundError:
 telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={last_update_id + 1}"
 response = requests.get(telegram_url).json()
 
-whapi_headers = {
-    "Authorization": f"Bearer {WHAPI_TOKEN}",
+# Naye WAHA Server ke liye Headers
+waha_headers = {
+    "X-Api-Key": WAHA_API_KEY,  # Whapi ke 'Bearer' token ki jagah WAHA ki API Key
     "Accept": "application/json",
     "Content-Type": "application/json"
 }
@@ -31,23 +34,25 @@ if response.get("ok"):
         update_id = result["update_id"]
         last_update_id = max(last_update_id, update_id)
         
-        message = result.get("channel_post")
+        # Channel post ya normal message dono handle karne ke liye
+        message = result.get("channel_post") or result.get("message")
         if not message:
             continue
 
-        # HAR GROUP KE LIYE LOOP CHALANA
-        for group_id in WHAPI_GROUP_IDS:
-            group_id = group_id.strip()
-            if not group_id:
+        # HAR GROUP/CHAT KE LIYE LOOP CHALANA
+        for chat_id in WAHA_CHAT_IDS:
+            chat_id = chat_id.strip()
+            if not chat_id:
                 continue
 
             # 1. Agar TEXT message hai
             if "text" in message:
                 payload = {
-                    "to": group_id,
-                    "body": message["text"]
+                    "chatId": chat_id,
+                    "text": message["text"],
+                    "session": "default"
                 }
-                requests.post("https://gate.whapi.cloud/messages/text", headers=whapi_headers, json=payload)
+                requests.post(f"{WAHA_API_URL}/api/sendText", headers=waha_headers, json=payload)
 
             # 2. Agar PHOTO hai
             elif "photo" in message:
@@ -61,11 +66,12 @@ if response.get("ok"):
                     download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
                     payload = {
-                        "to": group_id,
-                        "media": download_url,
-                        "caption": caption
+                        "chatId": chat_id,
+                        "file": {"url": download_url},
+                        "caption": caption,
+                        "session": "default"
                     }
-                    requests.post("https://gate.whapi.cloud/messages/image", headers=whapi_headers, json=payload)
+                    requests.post(f"{WAHA_API_URL}/api/sendFile", headers=waha_headers, json=payload)
 
             # 3. Agar PDF/DOCUMENT hai
             elif "document" in message:
@@ -80,12 +86,15 @@ if response.get("ok"):
                     download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
                     payload = {
-                        "to": group_id,
-                        "media": download_url,
+                        "chatId": chat_id,
+                        "file": {
+                            "url": download_url,
+                            "filename": file_name
+                        },
                         "caption": caption,
-                        "filename": file_name
+                        "session": "default"
                     }
-                    requests.post("https://gate.whapi.cloud/messages/document", headers=whapi_headers, json=payload)
+                    requests.post(f"{WAHA_API_URL}/api/sendFile", headers=waha_headers, json=payload)
 
     # Naye update ID ko save karna (taaki next time khali na rahe)
     with open("last_update_id.txt", "w") as f:
