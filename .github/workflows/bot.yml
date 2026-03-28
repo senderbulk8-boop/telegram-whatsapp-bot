@@ -25,8 +25,10 @@ jobs:
       - name: Run Python Script
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          WHAPI_TOKEN: ${{ secrets.WHAPI_TOKEN }}
-          WHAPI_GROUP_ID: ${{ secrets.WHAPI_GROUP_ID }}
+          # Yahan humne Whapi ko hata kar aapke naye WAHA server ki details daal di hain
+          WAHA_API_URL: ${{ secrets.WAHA_API_URL }}
+          WAHA_API_KEY: ${{ secrets.WAHA_API_KEY }}
+          WAHA_CHAT_ID: ${{ secrets.WAHA_CHAT_ID }}
         run: python bot.py
 
       - name: Save Record (Prevent Repeat)
