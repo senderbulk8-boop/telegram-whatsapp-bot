@@ -24,7 +24,10 @@ waha_headers = {
 }
 
 if response.get("ok"):
-    for result in response["result"]:
+    messages = response.get("result", [])
+    print(f"Found {len(messages)} new messages on Telegram.")
+    
+    for result in messages:
         update_id = result["update_id"]
         last_update_id = max(last_update_id, update_id)
         
@@ -39,84 +42,41 @@ if response.get("ok"):
 
             # 1. TEXT MESSAGE
             if "text" in message:
-                payload = {
-                    "chatId": chat_id,
-                    "text": message["text"],
-                    "session": "default"
-                }
-                requests.post(f"{WAHA_API_URL}/api/sendText", headers=waha_headers, json=payload)
+                payload = {"chatId": chat_id, "text": message["text"], "session": "default"}
+                res = requests.post(f"{WAHA_API_URL}/api/sendText", headers=waha_headers, json=payload)
+                print(f"TEXT sent to {chat_id} | Response: {res.status_code} - {res.text}")
 
             # 2. PHOTO MESSAGE
             elif "photo" in message:
-                photo = message["photo"][-1] # Sabse high quality wali photo
-                file_id = photo["file_id"]
-                caption = message.get("caption", "")
-                
-                file_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_id}").json()
+                photo = message["photo"][-1]
+                file_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={photo['file_id']}").json()
                 if file_res["ok"]:
-                    file_path = file_res["result"]["file_path"]
-                    download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
-                    
+                    download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_res['result']['file_path']}"
                     payload = {
                         "chatId": chat_id,
-                        "file": {
-                            "url": download_url,
-                            "mimetype": "image/jpeg"
-                        },
-                        "caption": caption,
+                        "file": {"url": download_url},
+                        "caption": message.get("caption", ""),
                         "session": "default"
                     }
-                    requests.post(f"{WAHA_API_URL}/api/sendImage", headers=waha_headers, json=payload)
+                    res = requests.post(f"{WAHA_API_URL}/api/sendImage", headers=waha_headers, json=payload)
+                    print(f"PHOTO sent to {chat_id} | Response: {res.status_code} - {res.text}")
 
-            # 3. DOCUMENT / PDF MESSAGE
+            # 3. DOCUMENT MESSAGE
             elif "document" in message:
                 document = message["document"]
-                file_id = document["file_id"]
-                file_name = document.get("file_name", "document.file")
-                mime_type = document.get("mime_type", "application/octet-stream")
-                caption = message.get("caption", "")
-                
-                file_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_id}").json()
+                file_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={document['file_id']}").json()
                 if file_res["ok"]:
-                    file_path = file_res["result"]["file_path"]
-                    download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
-                    
+                    download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_res['result']['file_path']}"
                     payload = {
                         "chatId": chat_id,
-                        "file": {
-                            "url": download_url,
-                            "filename": file_name,
-                            "mimetype": mime_type
-                        },
-                        "caption": caption,
+                        "file": {"url": download_url, "filename": document.get("file_name", "document.pdf")},
+                        "caption": message.get("caption", ""),
                         "session": "default"
                     }
-                    requests.post(f"{WAHA_API_URL}/api/sendFile", headers=waha_headers, json=payload)
-
-            # 4. VIDEO MESSAGE
-            elif "video" in message:
-                video = message["video"]
-                file_id = video["file_id"]
-                file_name = video.get("file_name", "video.mp4")
-                mime_type = video.get("mime_type", "video/mp4")
-                caption = message.get("caption", "")
-                
-                file_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_id}").json()
-                if file_res["ok"]:
-                    file_path = file_res["result"]["file_path"]
-                    download_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
-                    
-                    payload = {
-                        "chatId": chat_id,
-                        "file": {
-                            "url": download_url,
-                            "filename": file_name,
-                            "mimetype": mime_type
-                        },
-                        "caption": caption,
-                        "session": "default"
-                    }
-                    requests.post(f"{WAHA_API_URL}/api/sendFile", headers=waha_headers, json=payload)
+                    res = requests.post(f"{WAHA_API_URL}/api/sendFile", headers=waha_headers, json=payload)
+                    print(f"DOCUMENT sent to {chat_id} | Response: {res.status_code} - {res.text}")
 
     with open("last_update_id.txt", "w") as f:
         f.write(str(last_update_id))
+else:
+    print("Telegram API Error:", response)
