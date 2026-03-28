@@ -26,36 +26,32 @@ if response.get("ok"):
         for chat_id in WAHA_CHAT_IDS:
             chat_id = chat_id.strip()
             
-            # 1. TEXT MESSAGE
-            if "text" in msg:
+            # 1. सिर्फ टेक्स्ट मैसेज
+            if "text" in msg and "photo" not in msg:
                 requests.post(f"{WAHA_API_URL}/api/sendText", headers=headers, json={
                     "chatId": chat_id, "text": msg["text"], "session": "default"
                 })
 
-            # 2. PHOTO/DOC J जुगाड़ (Link Preview method)
-            media_type = None
-            if "photo" in msg: media_type = "photo"
-            elif "document" in msg: media_type = "document"
-
-            if media_type:
-                file_obj = msg[media_type][-1] if media_type == "photo" else msg[media_type]
+            # 2. फोटो के साथ टेक्स्ट (NOWEB JUGAD)
+            if "photo" in msg:
+                file_obj = msg["photo"][-1]
                 f_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_obj['file_id']}").json()
                 
                 if f_res.get("ok"):
                     file_path = f_res['result']['file_path']
-                    # यह फाइल का सीधा डाउनलोड लिंक है
                     d_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
-                    # NOWEB के फ्री वर्जन में हम लिंक भेजेंगे जो फोटो जैसा दिखेगा
-                    caption = msg.get("caption", "Positron Academy Document")
-                    text_with_link = f"{caption}\n\n📥 View/Download: {d_url}"
-                    
-                    res = requests.post(f"{WAHA_API_URL}/api/sendText", headers=headers, json={
-                        "chatId": chat_id, 
-                        "text": text_with_link, 
+                    # यह फीचर फ्री वर्जन में काम करता है और फोटो + टेक्स्ट का लुक देता है
+                    payload = {
+                        "chatId": chat_id,
+                        "url": d_url,
+                        "title": "Positron Academy Update",
+                        "text": msg.get("caption", ""), # फोटो के नीचे वाला टेक्स्ट
                         "session": "default"
-                    })
-                    print(f"Sent as Link to {chat_id}: {res.status_code}")
+                    }
+                    
+                    res = requests.post(f"{WAHA_API_URL}/api/send/link-custom-preview", headers=headers, json=payload)
+                    print(f"Image Link Preview to {chat_id}: {res.status_code}")
 
     with open("last_update_id.txt", "w") as f:
         f.write(str(last_update_id))
