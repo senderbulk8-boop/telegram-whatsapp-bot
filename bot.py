@@ -9,20 +9,19 @@ WAHA_API_URL = os.environ.get("WAHA_API_URL", "").rstrip("/")
 WAHA_API_KEY = os.environ.get("WAHA_API_KEY", "")
 WAHA_CHAT_IDS = os.environ.get("WAHA_CHAT_ID", "").split(",")
 
-# पिछले मैसेज का ID पढ़ना ताकि मैसेज रिपीट न हों
 try:
     with open("last_update_id.txt", "r") as f:
         last_update_id = int(f.read().strip() or 0)
 except:
     last_update_id = 0
 
-# ==========================================
-# 2. Telegram से नए मैसेज उठाना
-# ==========================================
 telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={last_update_id + 1}"
 response = requests.get(telegram_url).json()
 
-headers = {"X-Api-Key": WAHA_API_KEY, "Content-Type": "application/json"}
+# सिर्फ टेक्स्ट मैसेज के लिए Headers
+json_headers = {"X-Api-Key": WAHA_API_KEY, "Content-Type": "application/json"}
+# फाइल भेजने के लिए Headers (इसमें Content-Type की ज़रूरत नहीं होती)
+file_headers = {"X-Api-Key": WAHA_API_KEY}
 
 if response.get("ok"):
     for result in response["result"]:
@@ -34,19 +33,15 @@ if response.get("ok"):
             chat_id = chat_id.strip()
             
             # ==========================================
-            # A. सिर्फ टेक्स्ट मैसेज भेजना
+            # A. सिर्फ टेक्स्ट मैसेज (यह एकदम सही चल रहा है)
             # ==========================================
             if "text" in msg and "photo" not in msg and "document" not in msg:
-                payload = {
-                    "chatId": chat_id, 
-                    "text": msg["text"], 
-                    "session": "default"
-                }
-                res = requests.post(f"{WAHA_API_URL}/api/sendText", headers=headers, json=payload)
-                print(f"Text sent to {chat_id}: Status {res.status_code}")
+                payload = {"chatId": chat_id, "text": msg["text"], "session": "default"}
+                res = requests.post(f"{WAHA_API_URL}/api/sendText", headers=json_headers, json=payload)
+                print(f"Text sent: {res.status_code}")
 
             # ==========================================
-            # B. फोटो और डॉक्यूमेंट (PDF) भेजना (Direct URL)
+            # B. ब्रह्मास्त्र: फाइल को पहले GitHub में डाउनलोड करना, फिर WAHA को असली फाइल देना
             # ==========================================
             elif "photo" in msg or "document" in msg:
                 file_obj = None
@@ -54,19 +49,17 @@ if response.get("ok"):
                 file_name = ""
                 endpoint = ""
 
-                # तय करें कि यह फोटो है या डॉक्यूमेंट
                 if "photo" in msg:
-                    file_obj = msg["photo"][-1] # सबसे हाई-क्वालिटी फोटो
+                    file_obj = msg["photo"][-1]
                     mime_type = "image/jpeg"
                     file_name = "Positron_Update.jpg"
-                    endpoint = "sendImage"      # इमेज के लिए सही API
+                    endpoint = "sendImage"
                 elif "document" in msg:
                     file_obj = msg["document"]
                     mime_type = file_obj.get("mime_type", "application/pdf")
                     file_name = file_obj.get("file_name", "Positron_Notes.pdf")
-                    endpoint = "sendFile"       # डॉक्यूमेंट के लिए सही API
+                    endpoint = "sendFile"
 
-                # टेलीग्राम से फाइल का डायरेक्ट लिंक (URL) मंगवाएं
                 f_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_obj['file_id']}").json()
                 
                 if f_res.get("ok"):
@@ -74,20 +67,28 @@ if response.get("ok"):
                     d_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
                     try:
-                        # WAHA को सीधा URL दें (सबसे फ़ास्ट तरीका)
-                        payload = {
+                        # 1. टेलीग्राम से असली फाइल को GitHub सर्वर की मेमोरी में डाउनलोड करना
+                        print(f"Downloading {file_name} from Telegram...")
+                        downloaded_file = requests.get(d_url).content
+                        
+                        # 2. WAHA को 'Multipart Form-Data' के ज़रिए असली फाइल भेजना
+                        data_payload = {
                             "chatId": chat_id,
                             "session": "default",
-                            "caption": msg.get("caption", ""), # फोटो/PDF के नीचे का टेक्स्ट
-                            "file": {
-                                "mimetype": mime_type,
-                                "filename": file_name,
-                                "url": d_url  # सीधा टेलीग्राम का डाउनलोड लिंक
-                            }
+                            "caption": msg.get("caption", "")
                         }
                         
-                        # WAHA के सही API पर रिक्वेस्ट भेजें
-                        res = requests.post(f"{WAHA_API_URL}/api/{endpoint}", headers=headers, json=payload)
+                        files_payload = {
+                            "file": (file_name, downloaded_file, mime_type)
+                        }
+                        
+                        print(f"Uploading {file_name} to WAHA Render Server...")
+                        res = requests.post(
+                            f"{WAHA_API_URL}/api/{endpoint}", 
+                            headers=file_headers, 
+                            data=data_payload, 
+                            files=files_payload
+                        )
                         print(f"[{endpoint}] sent to {chat_id}: Status {res.status_code}")
                         
                     except Exception as e:
