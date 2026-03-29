@@ -1,18 +1,24 @@
 import os
 import requests
-import base64  # <-- जादुई Base64 लाइब्रेरी जोड़ दी गई है
 
+# ==========================================
+# 1. आपके सीक्रेट टोकन और सेटिंग्स
+# ==========================================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 WAHA_API_URL = os.environ.get("WAHA_API_URL", "").rstrip("/")
-WAHA_API_KEY = os.environ.get("WAHA_API_KEY")
+WAHA_API_KEY = os.environ.get("WAHA_API_KEY", "")
 WAHA_CHAT_IDS = os.environ.get("WAHA_CHAT_ID", "").split(",")
 
+# पिछले मैसेज का ID पढ़ना ताकि मैसेज रिपीट न हों
 try:
     with open("last_update_id.txt", "r") as f:
         last_update_id = int(f.read().strip() or 0)
 except:
     last_update_id = 0
 
+# ==========================================
+# 2. Telegram से नए मैसेज उठाना
+# ==========================================
 telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={last_update_id + 1}"
 response = requests.get(telegram_url).json()
 
@@ -28,32 +34,39 @@ if response.get("ok"):
             chat_id = chat_id.strip()
             
             # ==========================================
-            # 1. सिर्फ टेक्स्ट मैसेज (बिना फोटो/फाइल के)
+            # A. सिर्फ टेक्स्ट मैसेज भेजना
             # ==========================================
             if "text" in msg and "photo" not in msg and "document" not in msg:
-                requests.post(f"{WAHA_API_URL}/api/sendText", headers=headers, json={
-                    "chatId": chat_id, "text": msg["text"], "session": "default"
-                })
+                payload = {
+                    "chatId": chat_id, 
+                    "text": msg["text"], 
+                    "session": "default"
+                }
+                res = requests.post(f"{WAHA_API_URL}/api/sendText", headers=headers, json=payload)
+                print(f"Text sent to {chat_id}: Status {res.status_code}")
 
             # ==========================================
-            # 2. फोटो और डॉक्यूमेंट (Base64 मास्टर स्ट्रोक)
+            # B. फोटो और डॉक्यूमेंट (PDF) भेजना (Direct URL)
             # ==========================================
-            if "photo" in msg or "document" in msg:
+            elif "photo" in msg or "document" in msg:
                 file_obj = None
                 mime_type = ""
                 file_name = ""
+                endpoint = ""
 
-                # तय करें कि यह फोटो है या PDF डॉक्यूमेंट
+                # तय करें कि यह फोटो है या डॉक्यूमेंट
                 if "photo" in msg:
-                    file_obj = msg["photo"][-1] # सबसे हाई-क्वालिटी वाली फोटो लें
+                    file_obj = msg["photo"][-1] # सबसे हाई-क्वालिटी फोटो
                     mime_type = "image/jpeg"
                     file_name = "Positron_Update.jpg"
+                    endpoint = "sendImage"      # इमेज के लिए सही API
                 elif "document" in msg:
                     file_obj = msg["document"]
                     mime_type = file_obj.get("mime_type", "application/pdf")
                     file_name = file_obj.get("file_name", "Positron_Notes.pdf")
+                    endpoint = "sendFile"       # डॉक्यूमेंट के लिए सही API
 
-                # टेलीग्राम से फाइल का रास्ता (Path) मंगवाएं
+                # टेलीग्राम से फाइल का डायरेक्ट लिंक (URL) मंगवाएं
                 f_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_obj['file_id']}").json()
                 
                 if f_res.get("ok"):
@@ -61,31 +74,25 @@ if response.get("ok"):
                     d_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
                     try:
-                        # फाइल को टेलीग्राम से डाउनलोड करें
-                        file_data = requests.get(d_url).content
-                        
-                        # असली जादू: फाइल को Base64 में पैक करें
-                        encoded_data = base64.b64encode(file_data).decode('utf-8')
-                        
-                        # Render (NOWEB) को भेजने के लिए पैकेट तैयार करें
+                        # WAHA को सीधा URL दें (सबसे फ़ास्ट तरीका)
                         payload = {
                             "chatId": chat_id,
                             "session": "default",
-                            "caption": msg.get("caption", ""), # अगर फोटो के नीचे कुछ लिखा है, तो वो भी जाएगा
+                            "caption": msg.get("caption", ""), # फोटो/PDF के नीचे का टेक्स्ट
                             "file": {
                                 "mimetype": mime_type,
                                 "filename": file_name,
-                                "data": encoded_data
+                                "url": d_url  # सीधा टेलीग्राम का डाउनलोड लिंक
                             }
                         }
                         
-                        # WAHA के sendFile API पर फायर करें!
-                        res = requests.post(f"{WAHA_API_URL}/api/sendFile", headers=headers, json=payload)
-                        print(f"File sent to {chat_id}: Status {res.status_code}")
+                        # WAHA के सही API पर रिक्वेस्ट भेजें
+                        res = requests.post(f"{WAHA_API_URL}/api/{endpoint}", headers=headers, json=payload)
+                        print(f"[{endpoint}] sent to {chat_id}: Status {res.status_code}")
                         
                     except Exception as e:
-                        print(f"Error in Base64 processing/sending: {e}")
+                        print(f"Error sending file: {e}")
 
-    # आख़िरी अपडेट ID सेव करें ताकि मैसेज रिपीट न हों
+    # आख़िरी अपडेट ID सेव करें
     with open("last_update_id.txt", "w") as f:
         f.write(str(last_update_id))
