@@ -1,5 +1,6 @@
 import os
 import requests
+import base64
 
 # ==========================================
 # 1. आपके सीक्रेट टोकन और सेटिंग्स
@@ -18,10 +19,8 @@ except:
 telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={last_update_id + 1}"
 response = requests.get(telegram_url).json()
 
-# सिर्फ टेक्स्ट मैसेज के लिए Headers
+# JSON के लिए पक्के Headers
 json_headers = {"X-Api-Key": WAHA_API_KEY, "Content-Type": "application/json"}
-# फाइल भेजने के लिए Headers (इसमें Content-Type की ज़रूरत नहीं होती)
-file_headers = {"X-Api-Key": WAHA_API_KEY}
 
 if response.get("ok"):
     for result in response["result"]:
@@ -33,15 +32,15 @@ if response.get("ok"):
             chat_id = chat_id.strip()
             
             # ==========================================
-            # A. सिर्फ टेक्स्ट मैसेज (यह एकदम सही चल रहा है)
+            # A. सिर्फ टेक्स्ट मैसेज (यह पहले से मक्खन चल रहा है)
             # ==========================================
             if "text" in msg and "photo" not in msg and "document" not in msg:
                 payload = {"chatId": chat_id, "text": msg["text"], "session": "default"}
                 res = requests.post(f"{WAHA_API_URL}/api/sendText", headers=json_headers, json=payload)
-                print(f"Text sent: {res.status_code}")
+                print(f"Text sent to {chat_id}: {res.status_code}")
 
             # ==========================================
-            # B. ब्रह्मास्त्र: फाइल को पहले GitHub में डाउनलोड करना, फिर WAHA को असली फाइल देना
+            # B. फोटो और डॉक्यूमेंट (JSON + Base64 + Smart Caption)
             # ==========================================
             elif "photo" in msg or "document" in msg:
                 file_obj = None
@@ -67,29 +66,31 @@ if response.get("ok"):
                     d_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
                     try:
-                        # 1. टेलीग्राम से असली फाइल को GitHub सर्वर की मेमोरी में डाउनलोड करना
                         print(f"Downloading {file_name} from Telegram...")
                         downloaded_file = requests.get(d_url).content
+                        encoded_data = base64.b64encode(downloaded_file).decode('utf-8')
                         
-                        # 2. WAHA को 'Multipart Form-Data' के ज़रिए असली फाइल भेजना
-                        data_payload = {
+                        # शुद्ध JSON पेलोड (बिना कैप्शन के)
+                        payload = {
                             "chatId": chat_id,
                             "session": "default",
-                            "caption": msg.get("caption", "")
+                            "file": {
+                                "mimetype": mime_type,
+                                "filename": file_name,
+                                "data": encoded_data
+                            }
                         }
                         
-                        files_payload = {
-                            "file": (file_name, downloaded_file, mime_type)
-                        }
+                        # स्मार्ट लॉजिक: अगर कैप्शन सच में लिखा है, तभी पेलोड में डालें
+                        caption_text = msg.get("caption")
+                        if caption_text:
+                            payload["caption"] = caption_text
                         
-                        print(f"Uploading {file_name} to WAHA Render Server...")
-                        res = requests.post(
-                            f"{WAHA_API_URL}/api/{endpoint}", 
-                            headers=file_headers, 
-                            data=data_payload, 
-                            files=files_payload
-                        )
-                        print(f"[{endpoint}] sent to {chat_id}: Status {res.status_code}")
+                        print(f"Sending {file_name} to WAHA ({endpoint})...")
+                        res = requests.post(f"{WAHA_API_URL}/api/{endpoint}", headers=json_headers, json=payload)
+                        
+                        # अब एरर छुप नहीं पाएगा!
+                        print(f"[{endpoint}] to {chat_id}: Status {res.status_code} | Response: {res.text}")
                         
                     except Exception as e:
                         print(f"Error sending file: {e}")
