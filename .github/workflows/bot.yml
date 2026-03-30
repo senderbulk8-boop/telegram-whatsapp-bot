@@ -1,37 +1,31 @@
-name: Auto Forward Bot
+name: Run Telegram to WhatsApp Bot
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Har 5 minute mein chalega
-  workflow_dispatch: # Hath se chalane ka button bhi milega
+    - cron: '*/5 * * * *' # हर 5 मिनट में चलेगा
+  workflow_dispatch:
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
-      - name: Install Requests Library
+      
+      - name: Install Dependencies
         run: pip install requests
-
-      - name: Run Python Script
+        
+      - name: Run python bot.py
+        run: python bot.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          # Yahan humne Whapi ko hata kar aapke naye WAHA server ki details daal di hain
-          WAHA_API_URL: ${{ secrets.WAHA_API_URL }}
-          WAHA_API_KEY: ${{ secrets.WAHA_API_KEY }}
           WAHA_CHAT_ID: ${{ secrets.WAHA_CHAT_ID }}
-        run: python bot.py
-
-      - name: Save Record (Prevent Repeat)
+          GREENAPI_ID: ${{ secrets.GREENAPI_ID }}
+          GREENAPI_TOKEN: ${{ secrets.GREENAPI_TOKEN }}
+          
+      - name: Save Last Update ID
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
