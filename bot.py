@@ -2,15 +2,15 @@ import os
 import requests
 
 # ==========================================
-# 1. आपके सीक्रेट टोकन (GreenAPI + Telegram)
+# 1. आपके सीक्रेट टोकन
 # ==========================================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GREENAPI_ID = os.environ.get("GREENAPI_ID")        # GreenAPI का idInstance
-GREENAPI_TOKEN = os.environ.get("GREENAPI_TOKEN")  # GreenAPI का apiTokenInstance
-WHATSAPP_CHAT_IDS = os.environ.get("WAHA_CHAT_ID", "").split(",") # पुराने चैट ID का ही इस्तेमाल करेंगे
+GREENAPI_ID = os.environ.get("GREENAPI_ID")        
+GREENAPI_TOKEN = os.environ.get("GREENAPI_TOKEN")  
+WHATSAPP_CHAT_IDS = os.environ.get("WAHA_CHAT_ID", "").split(",") 
 
-# GreenAPI का Host URL (ज़्यादातर यही होता है, अगर आपके डैशबोर्ड में अलग हो तो यहाँ बदल सकते हैं)
-GREENAPI_HOST = "https://api.green-api.com"
+# आपका असली GreenAPI सर्वर (Host) URL जो आपने अभी बताया
+GREENAPI_HOST = "https://7107.api.greenapi.com"
 
 try:
     with open("last_update_id.txt", "r") as f:
@@ -31,11 +31,11 @@ if response.get("ok"):
             chat_id = chat_id.strip()
             if not chat_id: continue
             
-            # GreenAPI का बेस URL बनाना
+            # सही सर्वर और ID को जोड़ना
             greenapi_base_url = f"{GREENAPI_HOST}/waInstance{GREENAPI_ID}"
 
             # ==========================================
-            # A. सिर्फ टेक्स्ट मैसेज भेजना
+            # A. सिर्फ टेक्स्ट मैसेज
             # ==========================================
             if "text" in msg and "photo" not in msg and "document" not in msg:
                 url = f"{greenapi_base_url}/sendMessage/{GREENAPI_TOKEN}"
@@ -44,13 +44,12 @@ if response.get("ok"):
                 print(f"Text sent to {chat_id}: Status {res.status_code} | {res.text}")
 
             # ==========================================
-            # B. फोटो और डॉक्यूमेंट (PDF) भेजना (डायरेक्ट URL जुगाड़)
+            # B. फोटो और डॉक्यूमेंट (PDF) भेजना
             # ==========================================
             elif "photo" in msg or "document" in msg:
                 file_obj = None
                 file_name = ""
 
-                # तय करें कि फोटो है या PDF
                 if "photo" in msg:
                     file_obj = msg["photo"][-1]
                     file_name = "Positron_Update.jpg"
@@ -58,7 +57,6 @@ if response.get("ok"):
                     file_obj = msg["document"]
                     file_name = file_obj.get("file_name", "Positron_Notes.pdf")
 
-                # टेलीग्राम से फाइल का डाउनलोड लिंक मंगवाएं
                 f_res = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_obj['file_id']}").json()
                 
                 if f_res.get("ok"):
@@ -66,13 +64,12 @@ if response.get("ok"):
                     d_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
                     
                     try:
-                        # फाइल डाउनलोड करने की ज़रूरत नहीं, सीधा टेलीग्राम का लिंक GreenAPI को दे दिया!
                         url = f"{greenapi_base_url}/sendFileByUrl/{GREENAPI_TOKEN}"
                         payload = {
                             "chatId": chat_id,
                             "urlFile": d_url,
                             "fileName": file_name,
-                            "caption": msg.get("caption", "") # फोटो/PDF के नीचे का टेक्स्ट
+                            "caption": msg.get("caption", "") 
                         }
                         res = requests.post(url, json=payload)
                         print(f"File sent to {chat_id}: Status {res.status_code} | {res.text}")
