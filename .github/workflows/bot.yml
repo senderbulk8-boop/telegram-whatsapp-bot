@@ -2,7 +2,7 @@ name: Run Telegram to WhatsApp Bot
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # हर 5 मिनट में चलेगा
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -21,9 +21,18 @@ jobs:
         run: python bot.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          WAHA_CHAT_ID: ${{ secrets.WAHA_CHAT_ID }}
-          GREENAPI_ID: ${{ secrets.GREENAPI_ID }}
-          GREENAPI_TOKEN: ${{ secrets.GREENAPI_TOKEN }}
+          
+          # पहला अकाउंट
+          GREENAPI_HOST_1: ${{ secrets.GREENAPI_HOST_1 }}
+          GREENAPI_ID_1: ${{ secrets.GREENAPI_ID_1 }}
+          GREENAPI_TOKEN_1: ${{ secrets.GREENAPI_TOKEN_1 }}
+          CHATS_1: ${{ secrets.CHATS_1 }}
+          
+          # दूसरा अकाउंट
+          GREENAPI_HOST_2: ${{ secrets.GREENAPI_HOST_2 }}
+          GREENAPI_ID_2: ${{ secrets.GREENAPI_ID_2 }}
+          GREENAPI_TOKEN_2: ${{ secrets.GREENAPI_TOKEN_2 }}
+          CHATS_2: ${{ secrets.CHATS_2 }}
           
       - name: Save Last Update ID
         run: |
