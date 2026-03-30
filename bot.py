@@ -2,14 +2,14 @@ import os
 import requests
 
 # ==========================================
-# 1. आपके सीक्रेट टोकन
+# 1. आपके सीक्रेट टोकन (Space-Proof)
 # ==========================================
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GREENAPI_ID = os.environ.get("GREENAPI_ID")        
-GREENAPI_TOKEN = os.environ.get("GREENAPI_TOKEN")  
+# .strip() किसी भी फालतू स्पेस या एंटर को अपने आप हटा देगा
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+GREENAPI_ID = os.environ.get("GREENAPI_ID", "").strip()        
+GREENAPI_TOKEN = os.environ.get("GREENAPI_TOKEN", "").strip()  
 WHATSAPP_CHAT_IDS = os.environ.get("WAHA_CHAT_ID", "").split(",") 
 
-# आपका असली GreenAPI सर्वर (Host) URL जो आपने अभी बताया
 GREENAPI_HOST = "https://7107.api.greenapi.com"
 
 try:
@@ -31,7 +31,7 @@ if response.get("ok"):
             chat_id = chat_id.strip()
             if not chat_id: continue
             
-            # सही सर्वर और ID को जोड़ना
+            # सही सर्वर और साफ़ ID को जोड़ना
             greenapi_base_url = f"{GREENAPI_HOST}/waInstance{GREENAPI_ID}"
 
             # ==========================================
