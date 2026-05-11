@@ -2,15 +2,17 @@ name: Run Telegram to WhatsApp Bot
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
+    - cron: '*/5 * * * *' # Har 5 minute mein chalega
+  workflow_dispatch: # Manual button ke liye
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
@@ -20,19 +22,18 @@ jobs:
       - name: Run python bot.py
         run: python bot.py
         env:
+          # Telegram Setup
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           
-          # पहला अकाउंट
+          # Meta WhatsApp Official API Setup (Jo humne pehle set kiye)
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          PHONE_NUMBER_ID: ${{ secrets.PHONE_NUMBER_ID }}
+          
+          # Agar aap purane GreenAPI accounts bhi rakhna chahte hain
           GREENAPI_HOST_1: ${{ secrets.GREENAPI_HOST_1 }}
           GREENAPI_ID_1: ${{ secrets.GREENAPI_ID_1 }}
           GREENAPI_TOKEN_1: ${{ secrets.GREENAPI_TOKEN_1 }}
           CHATS_1: ${{ secrets.CHATS_1 }}
-          
-          # दूसरा अकाउंट
-          GREENAPI_HOST_2: ${{ secrets.GREENAPI_HOST_2 }}
-          GREENAPI_ID_2: ${{ secrets.GREENAPI_ID_2 }}
-          GREENAPI_TOKEN_2: ${{ secrets.GREENAPI_TOKEN_2 }}
-          CHATS_2: ${{ secrets.CHATS_2 }}
           
       - name: Save Last Update ID
         run: |
