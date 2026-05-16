@@ -30,9 +30,6 @@ jobs:
           PHONE_NUMBER_ID: ${{ secrets.PHONE_NUMBER_ID }}
           
           # Agar aap purane GreenAPI accounts bhi rakhna chahte hain
-          GREENAPI_HOST_1: ${{ secrets.GREENAPI_HOST_1 }}
-          GREENAPI_ID_1: ${{ secrets.GREENAPI_ID_1 }}
-          GREENAPI_TOKEN_1: ${{ secrets.GREENAPI_TOKEN_1 }}
           CHATS_1: ${{ secrets.CHATS_1 }}
           
       - name: Save Last Update ID
